@@ -1,0 +1,75 @@
+import cv2
+import face_recognition
+
+# צילום תמונת ייחוס מהמצלמה
+cam = cv2.VideoCapture(0)
+ret, frame = cam.read()
+
+if not ret:
+    print("Camera error")
+    exit()
+
+cv2.imwrite("face_to_reconise_image.jpg", frame)
+cv2.imshow("Captured Frame", frame)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+cam.release()
+
+# טעינת תמונת הייחוס והפקת encoding
+reference_image = face_recognition.load_image_file("face_to_reconise_image.jpg")
+encodings = face_recognition.face_encodings(reference_image)
+
+# בדיקה שיש פנים בתמונה
+if len(encodings) == 0:
+    print("No face found in reference image")
+    exit()
+
+reference_encoding = encodings[0]
+
+# זיהוי פנים בזמן אמת
+def reconise_face(reference_encoding):
+    cam = cv2.VideoCapture(0)
+    cam.set(3, 400)  # רוחב
+    cam.set(4, 400)  # גובה
+
+    while True:
+        ret, frame = cam.read()
+        if not ret:
+            break
+
+        # המרה ל-RGB (נדרש ל-face_recognition)
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # איתור פנים והמרה ל-encodings
+        face_locations = face_recognition.face_locations(rgb_frame)
+        face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+
+        for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
+            # השוואה לפנים השמורות
+            matches = face_recognition.compare_faces(
+                [reference_encoding], face_encoding, tolerance=0.45
+            )
+
+            color = (0, 0, 255)
+            name = "Unknown"
+
+            if True in matches:
+                color = (0, 255, 0)
+                name = "Identified"
+
+            # ציור מלבן וטקסט
+            cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
+            cv2.putText(frame, name, (left, top - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
+        cv2.imshow("Face Recognition System", frame)
+
+        # יציאה בלחיצה על q
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cam.release()
+    cv2.destroyAllWindows()
+
+# הפעלת הזיהוי
+reconise_face(reference_encoding)
